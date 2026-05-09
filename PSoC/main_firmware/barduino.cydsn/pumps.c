@@ -1,24 +1,15 @@
 #include "pumps.h"
-#include "shift_register.h"
 
 /*
- * 74HC595 output bit mapping:
+ * Direct GPIO pump control.
  *
- * bit 0  -> PUMP0_A
- * bit 1  -> PUMP0_B
- * bit 2  -> PUMP1_A
- * bit 3  -> PUMP1_B
- * bit 4  -> PUMP2_A
- * bit 5  -> PUMP2_B
- * bit 6  -> PUMP3_A
- * bit 7  -> PUMP3_B
- * bit 8  -> PUMP4_A
- * bit 9  -> PUMP4_B
- * bit 10 -> PUMP5_A
- * bit 11 -> PUMP5_B
+ * For each L9110S H-bridge:
+ *
+ * IN_1 = 0, IN_2 = 0 -> off / coast
+ * IN_1 = 1, IN_2 = 0 -> forward
+ * IN_1 = 0, IN_2 = 1 -> reverse
+ * IN_1 = 1, IN_2 = 1 -> brake, intentionally unused
  */
-#define PUMP_A_BIT(pump)    ((uint8_t)((uint8_t)(pump) * 2u))
-#define PUMP_B_BIT(pump)    ((uint8_t)(((uint8_t)(pump) * 2u) + 1u))
 
 typedef enum
 {
@@ -67,33 +58,53 @@ static uint8_t Pump_IsValid(pump_id_t pump)
 }
 
 /*
- * Low-level L9110S command.
+ * Low-level GPIO writer.
  *
- * A=0, B=0 -> off/coast
- * A=1, B=0 -> forward
- * A=0, B=1 -> reverse
- * A=1, B=1 -> brake, intentionally unused
+ * a -> PUMP_x_IN_1
+ * b -> PUMP_x_IN_2
  */
 static void Pump_WritePins(pump_id_t pump, uint8_t a, uint8_t b)
 {
-    uint8_t a_bit;
-    uint8_t b_bit;
-
     if (!Pump_IsValid(pump))
     {
         return;
     }
 
-    a_bit = PUMP_A_BIT(pump);
-    b_bit = PUMP_B_BIT(pump);
+    switch (pump)
+    {
+        case PUMP_0:
+            PUMP_0_IN_1_Write(a);
+            PUMP_0_IN_2_Write(b);
+            break;
 
-    /*
-     * Set both bits in the software image first,
-     * then update once so the physical outputs change together.
-     */
-    ShiftRegister_SetBit(a_bit, a);
-    ShiftRegister_SetBit(b_bit, b);
-    ShiftRegister_Update();
+        case PUMP_1:
+            PUMP_1_IN_1_Write(a);
+            PUMP_1_IN_2_Write(b);
+            break;
+
+        case PUMP_2:
+            PUMP_2_IN_1_Write(a);
+            PUMP_2_IN_2_Write(b);
+            break;
+
+        case PUMP_3:
+            PUMP_3_IN_1_Write(a);
+            PUMP_3_IN_2_Write(b);
+            break;
+
+        case PUMP_4:
+            PUMP_4_IN_1_Write(a);
+            PUMP_4_IN_2_Write(b);
+            break;
+
+        case PUMP_5:
+            PUMP_5_IN_1_Write(a);
+            PUMP_5_IN_2_Write(b);
+            break;
+
+        default:
+            break;
+    }
 }
 
 static void Pump_SetState(pump_id_t pump, pump_state_t state)
@@ -128,8 +139,6 @@ static void Pump_SetState(pump_id_t pump, pump_state_t state)
 
 void Pumps_Init(void)
 {
-    ShiftRegister_Init();
-
     /*
      * 1 ms SysTick timebase for nonblocking pump timing.
      *
@@ -139,7 +148,7 @@ void Pumps_Init(void)
     CySysTickStart();
     CySysTickSetCallback(0u, Pumps_SysTickISR);
 
-    for (uint8_t i = 0; i < PUMP_COUNT; i++)
+    for (uint8_t i = 0u; i < PUMP_COUNT; i++)
     {
         pumps[i].state = PUMP_STATE_OFF;
         pumps[i].task_state = PUMP_TASK_IDLE;
@@ -153,20 +162,16 @@ void Pumps_Init(void)
 
 void Pumps_StopAll(void)
 {
-    for (uint8_t i = 0; i < PUMP_COUNT; i++)
+    for (uint8_t i = 0u; i < PUMP_COUNT; i++)
     {
         pumps[i].state = PUMP_STATE_OFF;
         pumps[i].task_state = PUMP_TASK_IDLE;
         pumps[i].state_start_ms = 0u;
         pumps[i].dispense_time_ms = 0u;
         pumps[i].reverse_time_ms = 0u;
-    }
 
-    /*
-     * Clear all 16 shift-register outputs.
-     * This turns all pump H-bridge inputs off.
-     */
-    ShiftRegister_Clear();
+        Pump_WritePins((pump_id_t)i, 0u, 0u);
+    }
 }
 
 void Pump_Stop(pump_id_t pump)
@@ -270,7 +275,7 @@ void Pumps_Update(void)
 {
     uint32_t now = Pumps_Millis();
 
-    for (uint8_t i = 0; i < PUMP_COUNT; i++)
+    for (uint8_t i = 0u; i < PUMP_COUNT; i++)
     {
         pump_id_t pump = (pump_id_t)i;
 

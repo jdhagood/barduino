@@ -23,6 +23,8 @@ static volatile uint32_t phase_increment = 0;
 static volatile uint8_t step_pin_high = 0;
 static volatile uint8_t step_high_ticks_remaining = 0;
 
+static uint8_t driver_enabled = 0u;
+
 static uint32_t rpm_to_steps_per_second(uint16_t rpm)
 {
     uint32_t steps_per_rev;
@@ -65,17 +67,25 @@ void TMC2209_Init(const tmc2209_config_t *config)
     motor_cfg = *config;
 
     if (motor_cfg.full_steps_per_rev == 0)
+    {
         motor_cfg.full_steps_per_rev = 200;
+    }
 
     if (motor_cfg.microsteps == 0)
+    {
         motor_cfg.microsteps = 16;
+    }
 
     if (motor_cfg.timer_tick_hz == 0)
+    {
         motor_cfg.timer_tick_hz = 20000u;
+    }
 
     TMC_STEP_Write(0);
     TMC_DIR_Write(0);
     TMC2209_Disable();
+
+    TMC2209_SetMicrosteps(motor_cfg.microsteps);
 
     motion_state = TMC2209_MOTION_IDLE;
 
@@ -89,21 +99,23 @@ void TMC2209_Init(const tmc2209_config_t *config)
     phase_increment = 0;
     step_pin_high = 0;
     step_high_ticks_remaining = 0;
-
-    /*
-     * Do not start Stepper_Timer here.
-     * Start it in main.c after configuring interrupt mode and ISR vector.
-     */
 }
 
 void TMC2209_Enable(void)
 {
     TMC_EN_Write(TMC2209_EN_ACTIVE_LEVEL);
+    driver_enabled = 1u;
 }
 
 void TMC2209_Disable(void)
 {
     TMC_EN_Write(TMC2209_EN_INACTIVE_LEVEL);
+    driver_enabled = 0u;
+}
+
+uint8_t TMC2209_GetEnabled(void)
+{
+    return driver_enabled;
 }
 
 void TMC2209_SetDirection(tmc2209_dir_t dir)
@@ -245,6 +257,16 @@ uint32_t TMC2209_GetCurrentSpeedSPS(void)
     return current_sps;
 }
 
+uint16_t TMC2209_GetMicrosteps(void)
+{
+    return motor_cfg.microsteps;
+}
+
+uint16_t TMC2209_GetFullStepsPerRev(void)
+{
+    return motor_cfg.full_steps_per_rev;
+}
+
 static void update_acceleration_on_step(void)
 {
     uint32_t steps_remaining;
@@ -383,5 +405,51 @@ void TMC2209_TimerISR(void)
              */
             motion_state = TMC2209_MOTION_IDLE;
         }
+    }
+}
+
+uint8_t TMC2209_SetMicrosteps(uint16_t microsteps)
+{
+    /*
+     * BTT/TMC2209 standalone MS1/MS2 mappings vary by module.
+     * This common mapping matches many StepStick-style boards:
+     *
+     * MS1 MS2
+     *  0   0  -> 8 microsteps
+     *  1   0  -> 2 microsteps
+     *  0   1  -> 4 microsteps
+     *  1   1  -> 16 microsteps
+     *
+     * If your board's jumper table differs, change only this function.
+     */
+
+    switch (microsteps)
+    {
+        case 2u:
+            TMC_MS1_Write(1u);
+            TMC_MS2_Write(0u);
+            motor_cfg.microsteps = 2u;
+            return 1u;
+
+        case 4u:
+            TMC_MS1_Write(0u);
+            TMC_MS2_Write(1u);
+            motor_cfg.microsteps = 4u;
+            return 1u;
+
+        case 8u:
+            TMC_MS1_Write(0u);
+            TMC_MS2_Write(0u);
+            motor_cfg.microsteps = 8u;
+            return 1u;
+
+        case 16u:
+            TMC_MS1_Write(1u);
+            TMC_MS2_Write(1u);
+            motor_cfg.microsteps = 16u;
+            return 1u;
+
+        default:
+            return 0u;
     }
 }

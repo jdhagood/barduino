@@ -34,7 +34,12 @@ void TMC2209_Init(const tmc2209_config_t *config);
 
 void TMC2209_Enable(void);
 void TMC2209_Disable(void);
+uint8_t TMC2209_GetEnabled(void);
+
 void TMC2209_SetDirection(tmc2209_dir_t dir);
+
+uint8_t TMC2209_SetMicrosteps(uint16_t microsteps);
+uint16_t TMC2209_GetMicrosteps(void);
 
 void TMC2209_MoveStepsNonBlocking(tmc2209_dir_t direction,
                                   uint32_t steps,
@@ -46,10 +51,12 @@ void TMC2209_MoveStepsAccelNonBlocking(tmc2209_dir_t direction,
                                        uint32_t accel_sps2);
 
 void TMC2209_StopMotion(void);
+
 uint8_t TMC2209_IsBusy(void);
 uint32_t TMC2209_GetStepsRemaining(void);
 uint32_t TMC2209_GetStepsCompleted(void);
 uint32_t TMC2209_GetCurrentSpeedSPS(void);
+uint16_t TMC2209_GetFullStepsPerRev(void);
 
 void TMC2209_TimerISR(void);
 

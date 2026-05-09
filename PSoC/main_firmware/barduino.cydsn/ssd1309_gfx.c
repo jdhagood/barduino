@@ -163,3 +163,111 @@ void SSD1309_WriteString(const char *str, ssd1309_color_t color)
         str++;
     }
 }
+
+void SSD1309_DrawBitmap(uint8_t x,
+                        uint8_t y,
+                        const unsigned char *bitmap,
+                        uint16_t width,
+                        uint16_t height,
+                        ssd1309_color_t color)
+{
+    uint16_t bytes_per_row;
+
+    if (bitmap == 0)
+    {
+        return;
+    }
+
+    /*
+     * Horizontal 1bpp bitmap:
+     * each row is packed left-to-right, 8 pixels per byte.
+     */
+    bytes_per_row = (width + 7u) / 8u;
+
+    for (uint16_t row = 0u; row < height; row++)
+    {
+        for (uint16_t col = 0u; col < width; col++)
+        {
+            uint16_t byte_index;
+            uint8_t bit_mask;
+
+            /*
+             * Clip pixels outside the display.
+             */
+            if (((uint16_t)x + col) >= SSD1309_WIDTH)
+            {
+                continue;
+            }
+
+            if (((uint16_t)y + row) >= SSD1309_HEIGHT)
+            {
+                continue;
+            }
+
+            byte_index = row * bytes_per_row + (col / 8u);
+            bit_mask = (uint8_t)(0x80u >> (col & 0x07u));
+
+            if (bitmap[byte_index] & bit_mask)
+            {
+                SSD1309_DrawPixel((uint8_t)(x + col),
+                                  (uint8_t)(y + row),
+                                  color);
+            }
+        }
+    }
+}
+
+void SSD1309_DrawBitmapWithBackground(uint8_t x,
+                                      uint8_t y,
+                                      const unsigned char *bitmap,
+                                      uint16_t width,
+                                      uint16_t height,
+                                      ssd1309_color_t foreground,
+                                      ssd1309_color_t background)
+{
+    uint16_t bytes_per_row;
+
+    if (bitmap == 0)
+    {
+        return;
+    }
+
+    bytes_per_row = (width + 7u) / 8u;
+
+    for (uint16_t row = 0u; row < height; row++)
+    {
+        for (uint16_t col = 0u; col < width; col++)
+        {
+            uint16_t byte_index;
+            uint8_t bit_mask;
+            ssd1309_color_t pixel_color;
+
+            if (((uint16_t)x + col) >= SSD1309_WIDTH)
+            {
+                continue;
+            }
+
+            if (((uint16_t)y + row) >= SSD1309_HEIGHT)
+            {
+                continue;
+            }
+
+            byte_index = row * bytes_per_row + (col / 8u);
+            bit_mask = (uint8_t)(0x80u >> (col & 0x07u));
+
+            if (bitmap[byte_index] & bit_mask)
+            {
+                pixel_color = foreground;
+            }
+            else
+            {
+                pixel_color = background;
+            }
+
+            SSD1309_DrawPixel((uint8_t)(x + col),
+                              (uint8_t)(y + row),
+                              pixel_color);
+        }
+    }
+}
+

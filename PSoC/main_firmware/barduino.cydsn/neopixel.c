@@ -13,15 +13,16 @@
  * based on the Part Type setting. If red/green are swapped, change the Part Type
  * in the StripLights customizer between WS2811 and WS2812.
  */
+
 #define NEOPIXEL_BLACK 0x00000000u
 
 static neopixel_color_t neopixel_cache[NEOPIXEL_COUNT];
 
 static uint32_t NeoPixel_PackColor(uint8_t r, uint8_t g, uint8_t b)
 {
-    return ((uint32_t)r << 16) |
-           ((uint32_t)g << 8)  |
-           ((uint32_t)b);
+    return ((uint32_t)b << 16) |
+           ((uint32_t)r << 8)  |
+           ((uint32_t)g);
 }
 
 static void NeoPixel_WaitReady(void)

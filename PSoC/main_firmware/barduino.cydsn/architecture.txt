@@ -1,0 +1,32 @@
+Notes on the modular UI architecture
+
+UI files:
+    own menu state
+    decide what user action means
+    call public APIs from pumps/stepper/OLED/etc.
+
+Device drivers:
+    never know about menus
+    never call UI functions
+
+main.c:
+    initializes modules
+    calls update functions
+    does not contain menu logic
+   
+
+Main Menu
+├── Make Drinks
+│   ├── Select Drink
+│   ├── Confirm Drink
+│   └── Dispensing Progress
+├── Drink Config
+│   ├── Pump Times
+│   ├── Reverse Time
+│   ├── Pump Calibration
+│   └── Save/Load Config
+└── Info
+    ├── IR Sensors
+    ├── Pump Status
+    ├── Stepper Status
+    └── Firmware Version
