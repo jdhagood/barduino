@@ -1,4 +1,4 @@
-\#Barduino
+\# Barduino
 
 
 
@@ -7,8 +7,6 @@ An overengineered automated drink mixing robot! Perfect to increase throughput a
 
 
 CAD, EDA, and firmware for the Barduino implemented with a PSoC.
-
-
 
 
 
