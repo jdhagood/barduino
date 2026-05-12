@@ -10,6 +10,7 @@
 #include "tmc2209_stepper.h"
 #include "drink_db.h"
 #include "debugging_menu.h"
+#include "hall_sensor.h"
 
 #define STEPPER_FULL_STEPS_PER_REV  200u
 #define STEPPER_MICROSTEPS          16u
@@ -51,7 +52,7 @@ int main(void)
 
     Pumps_Init();
     Keypad_Init();
-    IRSensors_Init(IR_SENSOR_ACTIVE_HIGH);
+    IRSensors_Init(IR_SENSOR_ACTIVE_LOW);
 
     NeoPixel_Init();
     NeoPixelAnim_Init();   /* REQUIRED for animations */
@@ -62,6 +63,8 @@ int main(void)
 
     UI_Init();
     DebuggingMenu_Init();
+    
+    HallSensor_Init(HALL_SENSOR_ACTIVE_LOW);
 
     USBSerial_WriteLine("Ready.");
 
@@ -81,7 +84,9 @@ int main(void)
          * Nonblocking NeoPixel animation engine.
          */
         NeoPixelAnim_Update();
-
+        
+        HallSensor_Update();
+        
         CyDelay(5u);
     }
 }

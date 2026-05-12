@@ -45,10 +45,8 @@ void TMC2209_MoveStepsNonBlocking(tmc2209_dir_t direction,
                                   uint32_t steps,
                                   uint16_t rpm);
 
-void TMC2209_MoveStepsAccelNonBlocking(tmc2209_dir_t direction,
-                                       uint32_t steps,
-                                       uint16_t rpm,
-                                       uint32_t accel_sps2);
+void TMC2209_RunContinuousNonBlocking(tmc2209_dir_t direction,
+                                      uint16_t rpm);
 
 void TMC2209_StopMotion(void);
 

@@ -3,6 +3,7 @@
 #include "usb_serial.h"
 #include "pumps.h"
 #include "ir_sensors.h"
+#include "hall_sensor.h"
 #include "keypad.h"
 #include "neopixel.h"
 #include "tmc2209_stepper.h"
@@ -15,6 +16,10 @@
 #include <string.h>
 #include <stdlib.h>
 
+#define STEPPER_HOME_RPM          50u
+#define STEPPER_HOME_MICROSTEPS   16u
+
+static uint8_t stepper_homing_active = 0u;
 
 static void DebuggingMenu_PrintHelp(void)
 {
@@ -44,6 +49,7 @@ static void DebuggingMenu_PrintHelp(void)
     USBSerial_WriteLine("  stepper enable");
     USBSerial_WriteLine("  stepper disable");
     USBSerial_WriteLine("  stepper stop");
+    USBSerial_WriteLine("  stepper home");
     USBSerial_WriteLine("  stepper microsteps <2|4|8|16>");
     USBSerial_WriteLine("  stepper advance <steps> <direction> <max_rpm>");
     USBSerial_WriteLine("  stepper advance <steps> <direction> <max_rpm> <accel_sps2>");
@@ -65,6 +71,10 @@ static void DebuggingMenu_PrintHelp(void)
     USBSerial_WriteLine("OLED commands:");
     USBSerial_WriteLine("  oled print <message>");
     USBSerial_WriteLine("  oled clear");
+    USBSerial_WriteLine("");
+    
+    USBSerial_WriteLine("Hall sensor commands:");
+    USBSerial_WriteLine("  hall sensor read");
     USBSerial_WriteLine("");
 
     USBSerial_WriteLine("Drink DB commands:");
@@ -591,6 +601,12 @@ static void DebuggingMenu_HandleOLEDCommand(const char *cmd)
     USBSerial_Printf("OLED printed: %s\r\n", message);
 }
 
+static void DebuggingMenu_PrintHallSensorReading(void)
+{
+    USBSerial_Printf("Hall sensor raw: %u\r\n", HallSensor_ReadRaw());
+    USBSerial_Printf("Hall sensor active: %u\r\n", HallSensor_IsActive());
+}
+
 
 static void DebuggingMenu_HandleDrinksCommand(const char *cmd)
 {
@@ -667,6 +683,22 @@ void DebuggingMenu_Update(void)
 }
 
 
+static void DebuggingMenu_UpdateStepperHoming(void)
+{
+    if (!stepper_homing_active)
+    {
+        return;
+    }
+
+    if (HallSensor_IsActive())
+    {
+        TMC2209_StopMotion();
+        stepper_homing_active = 0u;
+
+        USBSerial_WriteLine("Stepper homing complete: hall sensor detected");
+    }
+}
+
 void DebuggingMenu_HandleCommand(const char *cmd)
 {
     if (cmd == NULL)
@@ -723,7 +755,12 @@ void DebuggingMenu_HandleCommand(const char *cmd)
         DebuggingMenu_HandleOLEDCommand(cmd);
         return;
     }
-
+    
+    if (strcmp(cmd, "hall sensor read") == 0)
+    {
+        DebuggingMenu_PrintHallSensorReading();
+        return;
+    }
     if (strncmp(cmd, "drinks ", 7u) == 0)
     {
         DebuggingMenu_HandleDrinksCommand(cmd);

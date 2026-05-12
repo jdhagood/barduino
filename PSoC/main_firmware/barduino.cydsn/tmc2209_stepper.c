@@ -25,6 +25,8 @@ static volatile uint8_t step_high_ticks_remaining = 0;
 
 static uint8_t driver_enabled = 0u;
 
+static volatile uint8_t continuous_motion = 0u;
+
 static uint32_t rpm_to_steps_per_second(uint16_t rpm)
 {
     uint32_t steps_per_rev;
@@ -148,6 +150,8 @@ void TMC2209_MoveStepsNonBlocking(tmc2209_dir_t direction,
 
     total_steps = steps;
     steps_completed = 0;
+    
+    continuous_motion = 0u;
 
     target_sps = sps;
     accel_sps2 = 0;
@@ -188,6 +192,8 @@ void TMC2209_MoveStepsAccelNonBlocking(tmc2209_dir_t direction,
 
     total_steps = steps;
     steps_completed = 0;
+    
+    continuous_motion = 0u;
 
     target_sps = sps;
     accel_sps2 = accel;
@@ -215,21 +221,61 @@ void TMC2209_MoveStepsAccelNonBlocking(tmc2209_dir_t direction,
     motion_state = TMC2209_MOTION_RUNNING;
 }
 
+void TMC2209_RunContinuousNonBlocking(tmc2209_dir_t direction,
+                                      uint16_t rpm)
+{
+    uint32_t sps;
+
+    if (rpm == 0u)
+    {
+        return;
+    }
+
+    sps = rpm_to_steps_per_second(rpm);
+
+    if (sps == 0u)
+    {
+        return;
+    }
+
+    TMC2209_SetDirection(direction);
+    TMC2209_Enable();
+
+    total_steps = 0xFFFFFFFFu;
+    steps_completed = 0u;
+    continuous_motion = 1u;
+
+    target_sps = sps;
+    accel_sps2 = 0u;
+    accel_enabled = 0u;
+
+    phase_accum = 0u;
+    set_current_speed_sps(sps);
+
+    step_pin_high = 0u;
+    step_high_ticks_remaining = 0u;
+    TMC_STEP_Write(0u);
+
+    motion_state = TMC2209_MOTION_RUNNING;
+}
+
 void TMC2209_StopMotion(void)
 {
     motion_state = TMC2209_MOTION_IDLE;
 
-    total_steps = 0;
-    steps_completed = 0;
+    continuous_motion = 0u;
 
-    target_sps = 0;
-    current_sps = 0;
-    phase_increment = 0;
-    phase_accum = 0;
+    total_steps = 0u;
+    steps_completed = 0u;
 
-    TMC_STEP_Write(0);
-    step_pin_high = 0;
-    step_high_ticks_remaining = 0;
+    target_sps = 0u;
+    current_sps = 0u;
+    phase_increment = 0u;
+    phase_accum = 0u;
+
+    TMC_STEP_Write(0u);
+    step_pin_high = 0u;
+    step_high_ticks_remaining = 0u;
 }
 
 uint8_t TMC2209_IsBusy(void)
@@ -370,7 +416,7 @@ void TMC2209_TimerISR(void)
         return;
     }
 
-    if (steps_completed >= total_steps)
+    if ((!continuous_motion) && (steps_completed >= total_steps))
     {
         TMC2209_StopMotion();
         return;
@@ -397,7 +443,7 @@ void TMC2209_TimerISR(void)
 
         update_acceleration_on_step();
 
-        if (steps_completed >= total_steps)
+        if ((!continuous_motion) && (steps_completed >= total_steps))
         {
             /*
              * Do not immediately pull STEP low here.
